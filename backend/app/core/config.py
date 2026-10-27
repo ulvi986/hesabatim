@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from functools import lru_cache
 from typing import Annotated, Literal
 
@@ -56,19 +55,7 @@ class Settings(BaseSettings):
     # Public base URL of the SadakatKarti site; each business's sign-up QR points to <url>/k/<slug>.
     sadakat_public_url: str | None = None
 
-    # --- Admin panel (read-only). Disabled unless all four are set. Store only the argon2 hash. ---
-    admin_username: str | None = None
-    admin_password_hash: str | None = None
-    admin_jwt_secret: str | None = None
-    # Secret URL segment: the panel lives at /<admin_path> and its API at /api/v1/<admin_path>. Never "admin".
-    admin_path: str | None = None
-    admin_session_minutes: int = 30
-    # Client IPs / CIDR ranges that may reach the admin API at all (e.g. a VPN subnet). Everyone else gets 404.
-    admin_allowed_ips: Annotated[list[str], NoDecode] = Field(default_factory=lambda: ["127.0.0.1", "::1"])
-    admin_max_failures: int = 5
-    admin_lockout_minutes: int = 15
-
-    @field_validator("cors_origins", "admin_allowed_ips", mode="before")
+    @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_origins(cls, v: object) -> object:
         if isinstance(v, str) and not v.startswith("["):
@@ -84,21 +71,9 @@ class Settings(BaseSettings):
                 return "postgresql+psycopg://" + v[len(scheme):]
         return v
 
-    @field_validator("admin_path")
-    @classmethod
-    def _admin_path(cls, v: str | None) -> str | None:
-        if v and (not re.fullmatch(r"[A-Za-z0-9_-]{12,80}", v) or "admin" in v.lower()):
-            raise ValueError("ADMIN_PATH must be 12-80 URL-safe characters and must not contain 'admin'")
-        return v or None
-
     @property
     def llm_enabled(self) -> bool:
         return bool(self.llm_api_key)
-
-    @property
-    def admin_enabled(self) -> bool:
-        return bool(self.admin_username and self.admin_password_hash and self.admin_path and self.admin_jwt_secret
-                    and len(self.admin_jwt_secret) >= 32)
 
     @property
     def is_sqlite(self) -> bool:

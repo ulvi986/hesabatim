@@ -1,6 +1,10 @@
 archive/
 .local/
 
+# Local-only modules, deployed with `railway up --no-gitignore`
+backend/app/admin_private/
+backend/tests/admin_private/
+
 # Secrets: real values live only in these files and in Railway variables
 **/.env
 **/.env.*

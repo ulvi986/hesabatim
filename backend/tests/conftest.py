@@ -12,14 +12,12 @@ os.environ["LLM_API_KEY"] = ""
 os.environ["RATE_LIMIT_PER_MINUTE"] = "100000"
 os.environ["AUTH_RATE_LIMIT_PER_MINUTE"] = "100000"
 os.environ["AI_RATE_LIMIT_PER_MINUTE"] = "100000"
-# Admin panel: fixed test values, never the developer's .env.
-os.environ["ADMIN_PATH"] = "test-secret-panel-path"
-os.environ["ADMIN_USERNAME"] = "test-admin"
-os.environ["ADMIN_PASSWORD_HASH"] = "$argon2id$v=19$m=65536,t=3,p=4$+vOQZoCUskL8M6TcNssakw$worTmN+ry95dTEwqd8Eqsa3haF8a22H/PhmgupQoV5o"  # "test-password"
-os.environ["ADMIN_JWT_SECRET"] = "test-admin-jwt-secret-0123456789abcdef"
-os.environ["ADMIN_ALLOWED_IPS"] = "203.0.113.7,10.8.0.0/24"
 os.environ["FRONTEND_PROXY_SECRET"] = "test-frontend-proxy-secret-0123456789"
 os.environ["CORS_ORIGINS"] = "http://localhost:3000"
+try:  # optional local-only suite, not in git
+    import tests.admin_private.env  # noqa: F401,E402
+except ModuleNotFoundError:
+    pass
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

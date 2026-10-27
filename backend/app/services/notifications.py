@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.models import Business, Customer, Inventory, Product
 from app.services.common import iso, qty_str, utc_now
 from app.services.customers import _days_to_birthday
+from app.services.products import attention_threshold
 
 DEFAULTS: dict[str, Any] = {
     "low_stock": True,
@@ -58,7 +59,7 @@ def _stock_items(db: Session, business: Business, s: dict[str, Any]) -> list[dic
     out_items, low_items = [], []
     limit = s["low_stock_threshold"]
     for p, qty in rows:
-        threshold = p.low_stock_threshold if limit is None else int(limit)
+        threshold = attention_threshold(p.low_stock_threshold if limit is None else int(limit))
         if qty <= 0:
             if s["out_of_stock"]:
                 out_items.append({"key": f"out:{p.id}", "type": "out_of_stock", "severity": "critical",

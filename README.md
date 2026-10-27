@@ -60,8 +60,6 @@ Without uv, create a Python virtual environment and install the dependency list 
 | `LLM_TIMEOUT_SECONDS` | Provider timeout (60 seconds by default) |
 | `API_BACKEND_URL` | Next.js server environment; defaults to `http://127.0.0.1:8000`; configure before build/start |
 
-| `ADMIN_PATH` | Secret URL segment (backend **and** frontend): panel at `/<ADMIN_PATH>`, API at `/api/v1/<ADMIN_PATH>`. `/admin` does not exist |
-| `ADMIN_ALLOWED_IPS` | Backend: IPs/CIDRs allowed to the admin API. Frontend: exact IPs allowed to the panel page. Everyone else gets 404 |
 | `FRONTEND_PROXY_SECRET` | Shared by frontend and backend; lets `src/proxy.ts` pass the real client IP (`X-Client-IP`) to FastAPI |
 | `TRUST_X_REAL_IP` | Frontend: `true` only behind Railway's edge, which sets `X-Real-IP` |
 | `SADAKAT_WEBHOOK_URL` / `SADAKAT_WEBHOOK_SECRET` | Optional signed card-change webhooks to SadakatKarti |
@@ -70,7 +68,7 @@ Additional upload/rate-limit settings are in `backend/.env.example`.
 
 ## Admin panel
 
-Read-only. Reachable only at the secret `/<ADMIN_PATH>` from an IP in `ADMIN_ALLOWED_IPS`; every other address, and every guessable path (`/admin`, `/adminpanel`, `/api/v1/admin`), gets an ordinary 404. The Next.js proxy (`frontend/src/proxy.ts`) strips client-supplied `X-Client-IP`/`X-Frontend-Secret` headers and sets them itself; the backend trusts that IP only with the shared secret, re-checks the allowlist, binds the session cookie to the IP, and locks the IP out for `ADMIN_LOCKOUT_MINUTES` after `ADMIN_MAX_FAILURES` wrong passwords (restart the backend to clear a lockout). Every admin request, block and probe is logged to stdout (Railway logs) and to `audit_logs`, visible in the panel.
+The admin panel is a local-only module (not in this repository).
 
 ## Railway
 

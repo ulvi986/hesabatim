@@ -42,7 +42,7 @@ Architecture artifact (Azerbaijani, v3, includes a risk list): https://claude.ai
   - `errors.py`
 - `backend/app/api/deps.py`: `current_user`, `Member` (role check), `trusted_client_ip`, rate-limit keys.
 - `backend/app/api/routes/`
-  - `auth.py`, `business.py` (everything under `/businesses/{id}`), `ai.py` (SSE), `public.py` (card and signup), `admin.py`.
+  - `auth.py`, `business.py` (everything under `/businesses/{id}`), `ai.py` (SSE), `public.py` (card and signup).
 - `backend/app/services/`
   - products, inventory, sales, customers, analytics, notifications, accounts, categories, lexicon, common.
   - `sadakat_webhook.py`
@@ -55,8 +55,8 @@ Architecture artifact (Azerbaijani, v3, includes a risk list): https://claude.ai
 **Frontend**
 - `frontend/src/components/`
   - workspace (nav, bell, 60 s polling)
-  - inventory, sales, customers, notifications, settings, loyalty, chat, admin, dashboard, excel-import, public-card
-- `frontend/src/app/`: `/`, `/admin` (reachable only via the secret-path rewrite), `/kart/[token]`.
+  - inventory, sales, customers, notifications, settings, loyalty, chat, dashboard, excel-import, public-card
+- `frontend/src/app/`: `/`, `/kart/[token]`.
 - `frontend/src/lib/api.ts`: same-origin fetch to `/api/v1` with credentials.
 
 **Other:** `archive/` holds old frontend sources and tests (unused). `start-backend.ps1` and `start-frontend.ps1` start local dev.
@@ -130,14 +130,7 @@ SadakatKarti requests carry `X-Proxy-Secret`, so the rate limit counts the end u
 
 **Rate limits** (in-process): 120/min general; 10/min for auth and public signup; AI 20/min and 300/day.
 
-**Admin panel** (read-only)
-- **Location:** only at the secret `/<ADMIN_PATH>`, with the API at `/api/v1/<ADMIN_PATH>`. The value is in `backend/.env` and the Railway variables, never in docs. The path must not contain "admin".
-- **Decoy paths:** `/admin`, `/adminpanel`, `/sistem` and `/api/v1/admin` return 404 and are logged as `admin_probe`.
-- **IP allowlist:** checked by `proxy.ts` (exact match) and by the backend `gate` (CIDR).
-- **Login:** argon2 hash only, with a dummy hash for unknown usernames. 5 failures lock the IP for 15 minutes (423).
-- **Session:** separate admin JWT, valid 30 minutes and bound to the IP. The cookie path is scoped to the admin API.
-- **Read-only:** a `before_flush` hook refuses all writes. Columns named password, hash, secret or token are hidden.
-- **Logging:** every admin action goes to stdout JSON and to `audit_logs`.
+**Admin panel:** local-only, not in git (`backend/app/admin_private/`, gitignored). Its design, deploy steps and secrets locations are in `.local/ADMIN.md` on the developer machine.
 
 **Startup checks:** in production, the secrets must be 32+ characters and SQLite is refused.
 
@@ -165,7 +158,9 @@ SadakatKarti requests carry `X-Proxy-Secret`, so the rate limit counts the end u
 - `sadakatkarti` (public, port 8080): https://sadakatkarti-production.up.railway.app
 - `Postgres-i46k`: SadakatKarti's database.
 
-**Source (since 2026-10-27):** GitHub `ulvi986/hesabatim` (public), branch `main`. A push auto-deploys: `backend` (root `/backend`, watch `/backend/**`) and `frontend` (root `/frontend`, watch `/frontend/**`), so a change in one folder redeploys only that service. `railway up` is no longer needed.
+**Source:** GitHub `ulvi986/hesabatim` (public), branch `main`.
+- `frontend` auto-deploys on push (root `/frontend`, watch `/frontend/**`).
+- `backend` is **not** connected to GitHub since 2026-10-28 (it needs local-only modules). Deploy it from `backend/` with `railway up . --path-as-root --no-gitignore --service backend --environment production --ci` (root directory `/`; `.railwayignore` keeps `.env`, `.venv` and tests out).
 - The backend has **no healthcheck** on purpose: uvicorn binds IPv6-only (`--host ::`) and Railway's healthcheck comes over IPv4, so `/health` never passes. Don't add `healthcheckPath` back without changing the bind.
 - Railway still reads `railway.json` from the service root, but rejects setting `railwayConfigFile` via API (config-as-code is deprecated); service settings were set via the GraphQL API.
 
@@ -207,7 +202,7 @@ SadakatKarti requests carry `X-Proxy-Secret`, so the rate limit counts the end u
 - **Loyalty card:** colour picker (`theme.card`). Logo and colour propagate to SadakatKarti via the webhook.
 
 ## Open risks / TODO (not started)
-1. **Backups:** Postgres backups are not configured or verified.
+1. **Backups:** a daily logical backup exists (local-only module, see `.local/ADMIN.md`); Railway volume backups are still not configured.
 2. **Webhook loss:** at-most-once delivery. Add an outbox table with retries; SadakatKarti should dedupe by `id`.
 3. **Restarts and scaling:** the rate limiter and admin lockout are in memory, reset on restart and are not shared across replicas. Use Redis if scaling.
 4. **Logo size:** since 2026-10-27 the logo is sent only in `business.created` and in `business.updated` when the logo itself changed (`logo_changed`); SadakatKarti's webhook body limit was raised from 20 KB to 600 KB (`E:\SadakatKarti\src\server\app.ts`). A logo over ~440 KB raw (~600 KB base64) still gets 413 on change; SadakatKarti then picks it up on its next lookup. The public business response still includes the full logo.

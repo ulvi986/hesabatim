@@ -25,7 +25,7 @@ from app.core.errors import ValidationFailed
 from app.models import Business, Category, InventoryEvent, Product, Sale, SaleItem
 from app.services.common import aware, iso, money_str, qty_str, utc_now
 from app.services.inventory import summary as inventory_summary
-from app.services.products import cost_value
+from app.services.products import attention_threshold, cost_value
 
 MAX_RANGE_DAYS = 731
 
@@ -283,7 +283,7 @@ def reorder_suggestions(db: Session, business: Business, *, days: int = 30, cove
         reasons = []
         if q <= 0:
             reasons.append("out_of_stock")
-        elif q <= p.low_stock_threshold:
+        elif q <= attention_threshold(p.low_stock_threshold):
             reasons.append("below_threshold")
         if cover is not None and cover < cover_days:
             reasons.append("low_cover")

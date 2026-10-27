@@ -23,14 +23,24 @@ def test_low_and_out_of_stock_follow_product_minimum(make_user):
 
 def test_one_threshold_for_all_products(make_user):
     api = make_user()
-    create_product(api, name="Qapı", quantity="4", low_stock_threshold=1)
-    create_product(api, name="Masa", quantity="6", low_stock_threshold=100)
-    r = api.patch(api.biz("/notifications/settings"), json={"low_stock_threshold": 5})
+    create_product(api, name="Qapı", quantity="7", low_stock_threshold=1)
+    create_product(api, name="Masa", quantity="9", low_stock_threshold=100)
+    r = api.patch(api.biz("/notifications/settings"), json={"low_stock_threshold": 8})
     assert r.status_code == 200, r.text
-    assert [n["title"] for n in r.json()["items"]] == ["Qapı azalır"]  # 4 <= 5; Masa's own 100 is ignored
+    assert [n["title"] for n in r.json()["items"]] == ["Qapı azalır"]  # 7 <= 8; Masa's own 100 is ignored
     r = api.patch(api.biz("/notifications/settings"), json={"use_product_thresholds": True})
     assert r.json()["settings"]["low_stock_threshold"] is None
     assert [n["title"] for n in r.json()["items"]] == ["Masa azalır"]
+
+
+def test_five_or_fewer_always_needs_attention(make_user):
+    api = make_user()
+    create_product(api, name="Qapı", quantity="5", low_stock_threshold=0)
+    create_product(api, name="Masa", quantity="6", low_stock_threshold=0)
+    assert [n["title"] for n in notes(api)["items"]] == ["Qapı azalır"]
+    r = api.get(api.biz("/products"), params={"stock": "attention"})
+    assert [p["name"] for p in r.json()["items"]] == ["Qapı"]
+    assert r.json()["items"][0]["stock_status"] == "low"
 
 
 def test_seen_and_renotify_on_further_drop(make_user):

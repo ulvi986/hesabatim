@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from app.api.routes import admin, ai, auth, business, public
+from app.api.routes import ai, auth, business, public
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.db.session import SessionLocal, engine
@@ -108,8 +108,13 @@ def create_app() -> FastAPI:
     prefix = settings.api_prefix
     for r in (auth.router, business.router, ai.router, public.router):
         app.include_router(r, prefix=prefix)
-    if settings.admin_path:  # the admin API exists only under its secret path
-        app.include_router(admin.router, prefix=f"{prefix}/{settings.admin_path}")
+    try:  # optional local-only package; without it these routes simply do not exist
+        from app import admin_private
+    except ModuleNotFoundError as exc:
+        if exc.name != "app.admin_private":
+            raise
+    else:
+        admin_private.mount(app, prefix)
 
     @app.get("/health")
     def health():

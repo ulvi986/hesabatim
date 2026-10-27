@@ -23,10 +23,21 @@ EDITABLE_FIELDS = {
 }
 
 
+# Products with this many units or fewer always need attention, whatever their own minimum is.
+ATTENTION_STOCK = 5
+
+
+def attention_threshold(threshold: int) -> int:
+    return max(threshold, ATTENTION_STOCK)
+
+
+_needs_attention = or_(Inventory.quantity <= Product.low_stock_threshold, Inventory.quantity <= ATTENTION_STOCK)
+
+
 def stock_status(quantity: Decimal, threshold: int) -> str:
     if quantity <= 0:
         return "out_of_stock"
-    if quantity <= threshold:
+    if quantity <= attention_threshold(threshold):
         return "low"
     return "in_stock"
 
@@ -224,13 +235,13 @@ def list_products(
                               Product.sku.ilike(f"%{q.strip()}%"), Product.name.ilike(f"%{q.strip()}%"),
                               Product.category_id.in_(in_category)))
     if stock == "low":
-        stmt = stmt.where(Inventory.quantity > 0, Inventory.quantity <= Product.low_stock_threshold)
+        stmt = stmt.where(Inventory.quantity > 0, _needs_attention)
     elif stock == "out":
         stmt = stmt.where(Inventory.quantity <= 0)
     elif stock == "in":
-        stmt = stmt.where(Inventory.quantity > Product.low_stock_threshold)
+        stmt = stmt.where(~_needs_attention)
     elif stock == "attention":
-        stmt = stmt.where(Inventory.quantity <= Product.low_stock_threshold)
+        stmt = stmt.where(_needs_attention)
 
     total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
     sort_map = {

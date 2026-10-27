@@ -17,6 +17,8 @@ export async function download(path: string, filename: string) {
 }
 export const units: Record<string, string> = { piece: 'ədəd', m2: 'm²', m: 'metr', m3: 'm³', kg: 'kq', ton: 'ton', l: 'litr', pack: 'paket', set: 'dəst' };
 export const money = (value: string | number | null | undefined, currency = 'AZN') => value == null ? 'Məlum deyil' : new Intl.NumberFormat('az-AZ', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(value));
+// True for strings produced by money(): digits plus a currency sign or code.
+export const isMoney = (value: unknown) => typeof value === 'string' && /\d/.test(value) && /[₼$€₺₽£]|[A-Z]{3}/.test(value);
 export const date = (value: string) => new Intl.DateTimeFormat('az-AZ', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Baku' }).format(new Date(value));
 // Decimal amounts remain strings at the boundary; numbers are used only for visual chart coordinates.
 export type Row = Record<string, any>;
