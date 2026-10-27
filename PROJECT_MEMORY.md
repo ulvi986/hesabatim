@@ -165,6 +165,10 @@ SadakatKarti requests carry `X-Proxy-Secret`, so the rate limit counts the end u
 - `sadakatkarti` (public, port 8080): https://sadakatkarti-production.up.railway.app
 - `Postgres-i46k`: SadakatKarti's database.
 
+**Source (since 2026-10-27):** GitHub `ulvi986/hesabatim` (public), branch `main`. A push auto-deploys: `backend` (root `/backend`, watch `/backend/**`) and `frontend` (root `/frontend`, watch `/frontend/**`), so a change in one folder redeploys only that service. `railway up` is no longer needed.
+- The backend has **no healthcheck** on purpose: uvicorn binds IPv6-only (`--host ::`) and Railway's healthcheck comes over IPv4, so `/health` never passes. Don't add `healthcheckPath` back without changing the bind.
+- Railway still reads `railway.json` from the service root, but rejects setting `railwayConfigFile` via API (config-as-code is deprecated); service settings were set via the GraphQL API.
+
 **Backend container**
 - The Dockerfile CMD runs `alembic upgrade head`, then `uvicorn --host :: --no-proxy-headers` (IPv6 is needed for private networking).
 - Railway ignored `preDeployCommand`, which is why migrations run in the CMD instead.
