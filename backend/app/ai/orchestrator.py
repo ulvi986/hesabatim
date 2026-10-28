@@ -343,6 +343,11 @@ def confirm_action(db: Session, settings: Settings, *, user: Profile, action_id:
         args = spec.validate(merged)
     except ValidationError as exc:
         raise ValidationFailed(f"Yanlış məlumat: {format_validation_error(exc)}") from exc
+    ctx = ToolContext(db=db, settings=settings, user=user, business=business, conversation_id=conv.id)
+    if overrides:
+        # The card shows the preview fields, so they must reflect the edited values, not the original guesses.
+        fresh = spec.preview(ctx, args)
+        action.preview = to_jsonable({**action.preview, **{k: fresh[k] for k in ("fields", "summary", "total") if k in fresh}})
 
     # Atomically claim the action so concurrent confirmations cannot execute it twice.
     claimed = db.execute(update(AIAction).where(AIAction.id == action.id, AIAction.status == "pending")
@@ -353,7 +358,6 @@ def confirm_action(db: Session, settings: Settings, *, user: Profile, action_id:
         if action.status == "executed":
             return action
         raise Conflict("Bu əməliyyat artıq bağlanıb", code="action_closed")
-    ctx = ToolContext(db=db, settings=settings, user=user, business=business, conversation_id=conv.id)
     try:
         result = spec.commit(ctx, args, action.id)
         action.arguments = to_jsonable(args.model_dump(exclude_none=True))

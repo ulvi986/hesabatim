@@ -378,7 +378,7 @@ def preview_record_sale(ctx: ToolContext, a: RecordSaleArgs) -> dict:
         warnings.append(f"Stok kifayət etmir: mövcud {_fmt_qty(available, p.unit)}, satış {_fmt_qty(a.quantity, p.unit)}. "
                         "Satış qeydə alına bilməz.")
     if p.purchase_price is None:
-        warnings.append("Bu məhsulun alış qiyməti qeyd olunmayıb: satışın mənfəəti hesablanmayacaq.")
+        warnings.append("Bu məhsulun alış qiyməti qeyd olunmayıb: mənfəət alış qiymətini əlavə edəndə hesablanacaq.")
     total = (a.quantity * Decimal(price)).quantize(CENT) if price is not None else None
     fields = [
         {"key": "product", "label": "Məhsul", "value": f"{p.name} ({p.sku})"},

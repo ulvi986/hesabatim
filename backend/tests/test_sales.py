@@ -38,6 +38,20 @@ def test_unknown_cost_is_explicit(make_user):
     assert totals['gross_profit'] is None and totals['cost_complete'] is False
 
 
+def test_purchase_price_added_later_fills_past_sales(make_user):
+    a = make_user()
+    p = create_product(a, purchase_price=None, selling_price='85')
+    s = sell(a, p['id'], '2').json()
+    assert a.get(a.biz('/analytics/overview')).json()['totals']['gross_profit'] is None
+    assert a.patch(a.biz(f'/products/{p["id"]}'), json={'purchase_price': '60'}).status_code == 200
+    totals = a.get(a.biz('/analytics/overview')).json()['totals']
+    assert (totals['gross_profit'], totals['cost_complete']) == ('50.00', True)
+    assert a.get(a.biz(f'/sales/{s["id"]}')).json()['gross_profit'] == '50.00'
+    # A later price change does not rewrite costs that were already known.
+    a.patch(a.biz(f'/products/{p["id"]}'), json={'purchase_price': '70'})
+    assert a.get(a.biz('/analytics/overview')).json()['totals']['gross_profit'] == '50.00'
+
+
 def test_zero_revenue_does_not_imply_known_cost(make_user):
     a = make_user()
     p = create_product(a, purchase_price=None, selling_price='0')

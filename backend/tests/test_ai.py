@@ -89,3 +89,18 @@ def test_ai_stock_confirmation_detects_changed_stock(make_user):
     r = a.post(f'/ai/actions/{action["id"]}/confirm', json={})
     assert r.status_code == 409
     assert a.get(a.biz(f'/products/{p["id"]}')).json()['quantity'] == '105'
+
+
+def test_confirmed_card_shows_edited_prices(make_user):
+    a = make_user(); conv = a.new_conversation()
+    action = blocks(a.chat(conv, 'Məndə 5 stul var'), 'action')[0]['action']
+    fields = {f['key']: f['value'] for f in action['preview']['fields']}
+    assert fields['selling_price'] is None and fields['purchase_price'] is None
+    r = a.post(f'/ai/actions/{action["id"]}/confirm', json={'overrides': {'selling_price': '45', 'purchase_price': '30.5'}})
+    assert r.status_code == 200, r.text
+    card = next(b['action'] for m in a.get(f'/ai/conversations/{conv}').json()['messages']
+                for b in m['blocks'] if b.get('type') == 'action' and b['action']['id'] == action['id'])
+    fields = {f['key']: f['value'] for f in card['preview']['fields']}
+    assert (fields['selling_price'], fields['purchase_price']) == ('45.00', '30.50')
+    product = a.get(a.biz('/products')).json()['items'][0]
+    assert (product['selling_price'], product['purchase_price']) == ('45.00', '30.50')

@@ -13,7 +13,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.errors import Conflict, NotFound, ValidationFailed
-from app.models import Category, Inventory, InventoryEvent, Product, ProductAlias
+from app.models import Category, Inventory, InventoryEvent, Product, ProductAlias, Sale, SaleItem
 from app.models.entities import UNITS
 from app.services.common import CENT, audit, aware, iso, money, money_str, qty, qty_str
 from app.services.lexicon import analyze, build_search_text, fold
@@ -186,8 +186,29 @@ def update_product(db: Session, *, actor_id: uuid.UUID, product: Product, data: 
     action = "product.price_change" if set(changed) <= {"selling_price", "purchase_price"} else "product.update"
     audit(db, business_id=product.business_id, actor_id=actor_id, action=action, entity_type="product",
           entity_id=product.id, before={k: before[k] for k in changed}, after=changed, via=via)
+    if changed.get("purchase_price") is not None:
+        _backfill_unknown_costs(db, actor_id=actor_id, product=product, via=via)
     db.flush()
     return product
+
+
+def _backfill_unknown_costs(db: Session, *, actor_id: uuid.UUID, product: Product, via: str) -> None:
+    """Sales made before the purchase price was known get it now, otherwise their profit stays unknown forever.
+    Lines that already have a cost keep it: a later price change must not rewrite history."""
+    items = db.scalars(select(SaleItem).where(SaleItem.product_id == product.id, SaleItem.unit_cost.is_(None))).all()
+    if not items:
+        return
+    cost = Decimal(product.purchase_price)
+    for it in items:
+        it.unit_cost = cost
+        it.line_cost = (Decimal(it.quantity) * cost).quantize(CENT)
+    db.flush()
+    for sale in db.scalars(select(Sale).where(Sale.id.in_({it.sale_id for it in items}))
+                           .options(selectinload(Sale.items))).all():
+        costs = [i.line_cost for i in sale.items]
+        sale.cost_total = sum(costs, Decimal(0)) if all(c is not None for c in costs) else None
+    audit(db, business_id=product.business_id, actor_id=actor_id, action="sale.cost_backfill", entity_type="product",
+          entity_id=product.id, after={"lines": len(items), "unit_cost": cost}, via=via)
 
 
 def archive_products(db: Session, *, actor_id: uuid.UUID, business_id: uuid.UUID, product_ids: list[uuid.UUID],
